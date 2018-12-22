@@ -7,8 +7,8 @@ import time
 
 options = webdriver.ChromeOptions()
 options.add_argument("--user-agent=New User Agent")
-options.add_argument("--headless")
-options.add_argument("--window-size=1366x768")
+#options.add_argument("--headless")
+#options.add_argument("--window-size=1366x768")
 driver = webdriver.Chrome(chrome_options=options)
 driver.get("https://www.instagram.com/accounts/login/?source=auth_switcher")
 
@@ -52,11 +52,11 @@ class GetData():
 		Функция получает никнемы пользователей из 
 		файла users.txt и возвращает их в виде списка.
 		'''
-		users = []									
+		users = set()									
 		with open("users.txt") as file_handler:
 			for line in file_handler:
 				line = line.rstrip('\n')
-				users.append(line)
+				users.add(line)
 		return users
 
 
@@ -65,8 +65,8 @@ class Login(GetData):
 	Класс содержит в себе методы, для авторизации
 	пользователя на сайте. 
 	'''
-	def __init__(self, parent=None):
-		GetData.__init__(self, parent)
+	def __init__(self):
+		GetData.__init__(self)
 		self.login = GetData.get_login(self)
 		self.password = GetData.get_password(self)
 
@@ -74,6 +74,7 @@ class Login(GetData):
 		'''
 		Функция переда логин и пароль в соответствующие поля.
 		'''
+		time.sleep(0.5)
 		driver.find_element_by_name('username').send_keys(self.login)
 		driver.find_element_by_name('password').send_keys(self.password)
 
@@ -81,11 +82,13 @@ class Login(GetData):
 		'''
 		Функция авторизует пользователя на сайте.
 		'''
+		time.sleep(0.5)
 		log_in_button = driver.find_element_by_xpath("""
 			//button
 			[@class='_0mzm- sqdOP  L3NKy       ']
 			[@type='submit']
-		""").click()
+		""")
+		log_in_button.click()
 		time.sleep(3) # ждём авторизации на сайте
 		print('Вход выполнен успешно')		
 
@@ -95,10 +98,10 @@ class Checking(GetData):
 	Класс содержит в себе методы для получения данных 
 	со страниц пользователей.
 	'''
-	def __init__(self, parent=None):
-		GetData.__init__(self, parent)
-		self.users = GetData.get_users()
-		self.post = GetData.get_post()
+	def __init__(self):
+		GetData.__init__(self)
+		self.users = GetData.get_users(self)
+		self.post = GetData.get_post(self)
 
 	def show_page(self):
 		'''
@@ -108,11 +111,12 @@ class Checking(GetData):
 		driver.get(self.post.__next__())
 		while True:
 			try:
-				driver.find_element_by_xpath("""
+				view_more_btn = driver.find_element_by_xpath("""
 					//button
 					[@class='Z4IfV _0mzm- sqdOP yWX7d        ']
 					[@type='button']
-				""").click() 
+				""")
+				view_more_btn.click() 
 				time.sleep(0.5)
 			except NoSuchElementException:
 				break	
@@ -122,11 +126,11 @@ class Checking(GetData):
 		Функция собирает никнеймы пользователей, оставивших комментарий 
 		и формирует из этих данных список.
 		'''
-		comments = []
+		comments = set()
 		users_list = driver.find_elements_by_tag_name('h3')
 		for user in users_list:
 			nickname = user.text
-			comments.append(nickname)
+			comments.add(nickname)
 		return comments
 
 	def get_autor(self):
@@ -137,38 +141,69 @@ class Checking(GetData):
 		return autor
 
 
-class DataProcessing(GetData, Checking):
+class DataProcessing(GetData):
 	'''
 	Класс содержит методы, позволяющие сформировать отчёт 
 	на основе полученных данных.
 	'''
-	def __init__(self, parent=None):
-		GetData.__init__(self, parent)
-		self.users = GetData.get_users()
-		Checking.__init__(self, parent)
-		self.comments = Checking.get_comments()
-		self.autor = Checking.get_autor()
+	def __init__(self, data_dict):
+		GetData.__init__(self)
+		self.users = GetData.get_users(self)
+		self.data_dict = data_dict
 
 	def generate_report_dict(self):
 		'''
 		Функция формирует словарь с данными для отчёта.
 		'''
-		value = [ '+' if i in comments else '-' for i in self.users]
-		report_dict = dict(zip(self.users, value))
-		print('{}{}ok'.format(autor,'.' * (56 - int(len(autor)))))
-		return report_dict	
+		report_dict = dict()
 
-	def generate_report_file(self):
+		for key in self.data_dict.keys():
+			good_users = list(self.users & self.data_dict[key])
+			bad_users = list(self.users - self.data_dict[key])
+			plus = []
+			for i in range(len(good_users)):
+				plus.append('+')
+			minus = []
+			for j in range(len(bad_users)):
+				minus.append('-')
+			p = dict(zip(good_users, plus))
+			m = dict(zip(bad_users, minus))
+			p.update(m) 
+			report_dict[key] = p
+		return report_dict
+
+	def generate_report_file(self, report_dict):
 		'''
 		Функция формирует отчёт в виде файла для пользователя.
 		'''
-		with open("report.txt", "w", encoding='utf-8') as report:     
-			report.write('{}\n{}\n{}\n'.format(48*'-', self.autor, 48*'-'))
-			for k,v in report_dict.items():
-				report.write('{}: |{}|\n'.format(k,v))
+		with open("report.txt", "w", encoding='utf-8') as report:
+			for key in report_dict.keys():
+				report.write('{}\n{}\n{}\n'.format(48*'-', key, 48*'-'))
+				_dict = report_dict[key]
+				for k, v in _dict.items():
+					report.write('{}: |{}|\n'.format(k, v))
 
 
 if __name__ == "__main__":
+	login = Login()
+	login.input_log_and_pas()
+	login.autorization()
+
+	check = Checking()
+	data_dict = dict()
+	while True:
+		try:
+			check.show_page()
+			comments = check.get_comments()
+			autor = check.get_autor()
+			data_dict[autor] = comments
+		except StopIteration:
+			break
+
+	report = DataProcessing(data_dict)
+	report_dict = report.generate_report_dict()
+	report.generate_report_file(report_dict)
+
 	
 	
 
