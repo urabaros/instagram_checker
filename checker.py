@@ -7,8 +7,8 @@ import time
 
 options = webdriver.ChromeOptions()
 options.add_argument("--user-agent=New User Agent")
-#options.add_argument("--headless")
-#options.add_argument("--window-size=1366x768")
+options.add_argument("--headless")
+options.add_argument("--window-size=1366x768")
 driver = webdriver.Chrome(chrome_options=options)
 driver.get("https://www.instagram.com/accounts/login/?source=auth_switcher")
 
@@ -74,6 +74,7 @@ class Login(GetData):
 		'''
 		Функция переда логин и пароль в соответствующие поля.
 		'''
+		print('\nАвторизуемся...')
 		time.sleep(0.5)
 		driver.find_element_by_name('username').send_keys(self.login)
 		driver.find_element_by_name('password').send_keys(self.password)
@@ -138,6 +139,7 @@ class Checking(GetData):
 		Функция получает никнейм автора поста.
 		'''
 		autor = driver.find_element_by_tag_name('h2').text
+		print ('Данные {} собраны.'.format(autor))
 		return autor
 
 
@@ -155,6 +157,7 @@ class DataProcessing(GetData):
 		'''
 		Функция формирует словарь с данными для отчёта.
 		'''
+		print('\nФормируем отчёт')
 		report_dict = dict()
 
 		for key in self.data_dict.keys():
@@ -182,7 +185,7 @@ class DataProcessing(GetData):
 				_dict = report_dict[key]
 				for k, v in _dict.items():
 					report.write('{}: |{}|\n'.format(k, v))
-
+		print('\nОтчёт сформирован. Можешь закрыть окно.')
 
 if __name__ == "__main__":
 	login = Login()
